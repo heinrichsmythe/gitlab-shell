@@ -2,8 +2,7 @@ package gitlabnet
 
 import (
 	"encoding/base64"
-	"fmt"
-	"io/ioutil"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"testing"
@@ -26,7 +25,10 @@ func TestBasicAuthSettings(t *testing.T) {
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, http.MethodGet, r.Method)
 
-				fmt.Fprint(w, r.Header.Get("Authorization"))
+				body := map[string]string{
+					"value": r.Header.Get("Authorization"),
+				}
+				json.NewEncoder(w).Encode(body)
 			},
 		},
 		{
@@ -34,7 +36,10 @@ func TestBasicAuthSettings(t *testing.T) {
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, http.MethodPost, r.Method)
 
-				fmt.Fprint(w, r.Header.Get("Authorization"))
+				body := map[string]string{
+					"value": r.Header.Get("Authorization"),
+				}
+				json.NewEncoder(w).Encode(body)
 			},
 		},
 	}
@@ -43,23 +48,18 @@ func TestBasicAuthSettings(t *testing.T) {
 	client, cleanup := setup(t, config, requests)
 	defer cleanup()
 
-	response, err := client.Get("/get_endpoint")
+	var response map[string]string
+	_, err := client.Get("/get_endpoint", &response)
 	require.NoError(t, err)
-	testBasicAuthHeaders(t, response)
+	testBasicAuthHeaders(t, response["value"])
 
-	response, err = client.Post("/post_endpoint", nil)
+	_, err = client.Post("/post_endpoint", nil, &response)
 	require.NoError(t, err)
-	testBasicAuthHeaders(t, response)
+	testBasicAuthHeaders(t, response["value"])
 }
 
-func testBasicAuthHeaders(t *testing.T, response *http.Response) {
-	defer response.Body.Close()
-
-	require.NotNil(t, response)
-	responseBody, err := ioutil.ReadAll(response.Body)
-	assert.NoError(t, err)
-
-	headerParts := strings.Split(string(responseBody), " ")
+func testBasicAuthHeaders(t *testing.T, basicAuth string) {
+	headerParts := strings.Split(basicAuth, " ")
 	assert.Equal(t, "Basic", headerParts[0])
 
 	credentials, err := base64.StdEncoding.DecodeString(headerParts[1])
@@ -74,6 +74,7 @@ func TestEmptyBasicAuthSettings(t *testing.T) {
 			Path: "/api/v4/internal/empty_basic_auth",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, "", r.Header.Get("Authorization"))
+				json.NewEncoder(w).Encode(map[string]string{})
 			},
 		},
 	}
@@ -81,7 +82,8 @@ func TestEmptyBasicAuthSettings(t *testing.T) {
 	client, cleanup := setup(t, &config.Config{}, requests)
 	defer cleanup()
 
-	_, err := client.Get("/empty_basic_auth")
+	var response map[string]string
+	_, err := client.Get("/empty_basic_auth", &response)
 	require.NoError(t, err)
 }
 

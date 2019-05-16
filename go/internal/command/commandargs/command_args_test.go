@@ -25,13 +25,6 @@ func TestParseSuccess(t *testing.T) {
 			expectedArgs: &CommandArgs{CommandType: Discover},
 		},
 		{
-			desc: "It passes on the original ssh command from the environment",
-			environment: map[string]string{
-				"SSH_CONNECTION":       "1",
-				"SSH_ORIGINAL_COMMAND": "hello world",
-			},
-			expectedArgs: &CommandArgs{SshCommand: "hello world"},
-		}, {
 			desc: "It finds the key id in any passed arguments",
 			environment: map[string]string{
 				"SSH_CONNECTION":       "1",
@@ -47,6 +40,20 @@ func TestParseSuccess(t *testing.T) {
 			},
 			arguments:    []string{"hello", "username-jane-doe"},
 			expectedArgs: &CommandArgs{CommandType: Discover, GitlabUsername: "jane-doe"},
+		}, {
+			desc: "It parses 2fa_recovery_codes command",
+			environment: map[string]string{
+				"SSH_CONNECTION":       "1",
+				"SSH_ORIGINAL_COMMAND": "2fa_recovery_codes",
+			},
+			expectedArgs: &CommandArgs{SshArgs: []string{"2fa_recovery_codes"}, CommandType: TwoFactorRecover},
+		}, {
+			desc: "It parses git-receive-pack command",
+			environment: map[string]string{
+				"SSH_CONNECTION":       "1",
+				"SSH_ORIGINAL_COMMAND": "git receive-pack 'group/repo'",
+			},
+			expectedArgs: &CommandArgs{SshArgs: []string{"git-receive-pack", "group/repo"}, CommandType: ReceivePack},
 		},
 	}
 

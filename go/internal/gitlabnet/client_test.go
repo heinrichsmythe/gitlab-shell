@@ -3,7 +3,6 @@ package gitlabnet
 import (
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
 	"io/ioutil"
 	"net/http"
 	"testing"
@@ -21,7 +20,10 @@ func TestClients(t *testing.T) {
 			Handler: func(w http.ResponseWriter, r *http.Request) {
 				require.Equal(t, http.MethodGet, r.Method)
 
-				fmt.Fprint(w, "Hello")
+				body := map[string]string{
+					"value": "Hello",
+				}
+				json.NewEncoder(w).Encode(body)
 			},
 		},
 		{
@@ -34,13 +36,19 @@ func TestClients(t *testing.T) {
 
 				require.NoError(t, err)
 
-				fmt.Fprint(w, "Echo: "+string(b))
+				body := map[string]string{
+					"value": "Echo: " + string(b),
+				}
+				json.NewEncoder(w).Encode(body)
 			},
 		},
 		{
 			Path: "/api/v4/internal/auth",
 			Handler: func(w http.ResponseWriter, r *http.Request) {
-				fmt.Fprint(w, r.Header.Get(secretHeaderName))
+				body := map[string]string{
+					"value": r.Header.Get(secretHeaderName),
+				}
+				json.NewEncoder(w).Encode(body)
 			},
 		},
 		{
@@ -100,15 +108,14 @@ func TestClients(t *testing.T) {
 
 func testSuccessfulGet(t *testing.T, client *GitlabClient) {
 	t.Run("Successful get", func(t *testing.T) {
-		response, err := client.Get("/hello")
-		defer response.Body.Close()
+		response := map[string]string{}
+		httpResponse, err := client.Get("/hello", &response)
 
 		require.NoError(t, err)
-		require.NotNil(t, response)
 
-		responseBody, err := ioutil.ReadAll(response.Body)
 		assert.NoError(t, err)
-		assert.Equal(t, string(responseBody), "Hello")
+		assert.Equal(t, "Hello", response["value"])
+		assert.Equal(t, httpResponse.StatusCode, 200)
 	})
 }
 
@@ -116,27 +123,30 @@ func testSuccessfulPost(t *testing.T, client *GitlabClient) {
 	t.Run("Successful Post", func(t *testing.T) {
 		data := map[string]string{"key": "value"}
 
-		response, err := client.Post("/post_endpoint", data)
-		defer response.Body.Close()
+		response := map[string]string{}
+		httpResponse, err := client.Post("/post_endpoint", data, &response)
 
 		require.NoError(t, err)
-		require.NotNil(t, response)
 
-		responseBody, err := ioutil.ReadAll(response.Body)
 		assert.NoError(t, err)
-		assert.Equal(t, "Echo: {\"key\":\"value\"}", string(responseBody))
+		assert.Equal(t, "Echo: {\"key\":\"value\"}", response["value"])
+		assert.Equal(t, httpResponse.StatusCode, 200)
 	})
 }
 
 func testMissing(t *testing.T, client *GitlabClient) {
 	t.Run("Missing error for GET", func(t *testing.T) {
-		response, err := client.Get("/missing")
+		var response map[string]string
+		_, err := client.Get("/missing", &response)
+
 		assert.EqualError(t, err, "Internal API error (404)")
 		assert.Nil(t, response)
 	})
 
 	t.Run("Missing error for POST", func(t *testing.T) {
-		response, err := client.Post("/missing", map[string]string{})
+		var response map[string]string
+		_, err := client.Post("/missing", map[string]string{}, &response)
+
 		assert.EqualError(t, err, "Internal API error (404)")
 		assert.Nil(t, response)
 	})
@@ -144,13 +154,17 @@ func testMissing(t *testing.T, client *GitlabClient) {
 
 func testErrorMessage(t *testing.T, client *GitlabClient) {
 	t.Run("Error with message for GET", func(t *testing.T) {
-		response, err := client.Get("/error")
+		var response map[string]string
+		_, err := client.Get("/error", &response)
+
 		assert.EqualError(t, err, "Don't do that")
 		assert.Nil(t, response)
 	})
 
 	t.Run("Error with message for POST", func(t *testing.T) {
-		response, err := client.Post("/error", map[string]string{})
+		var response map[string]string
+		_, err := client.Post("/error", map[string]string{}, &response)
+
 		assert.EqualError(t, err, "Don't do that")
 		assert.Nil(t, response)
 	})
@@ -158,13 +172,17 @@ func testErrorMessage(t *testing.T, client *GitlabClient) {
 
 func testBrokenRequest(t *testing.T, client *GitlabClient) {
 	t.Run("Broken request for GET", func(t *testing.T) {
-		response, err := client.Get("/broken")
+		var response map[string]string
+		_, err := client.Get("/broken", &response)
+
 		assert.EqualError(t, err, "Internal API unreachable")
 		assert.Nil(t, response)
 	})
 
 	t.Run("Broken request for POST", func(t *testing.T) {
-		response, err := client.Post("/broken", map[string]string{})
+		var response map[string]string
+		_, err := client.Post("/broken", map[string]string{}, &response)
+
 		assert.EqualError(t, err, "Internal API unreachable")
 		assert.Nil(t, response)
 	})
@@ -172,31 +190,23 @@ func testBrokenRequest(t *testing.T, client *GitlabClient) {
 
 func testAuthenticationHeader(t *testing.T, client *GitlabClient) {
 	t.Run("Authentication headers for GET", func(t *testing.T) {
-		response, err := client.Get("/auth")
-		defer response.Body.Close()
+		var response map[string]string
+		_, err := client.Get("/auth", &response)
 
 		require.NoError(t, err)
-		require.NotNil(t, response)
 
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-
-		header, err := base64.StdEncoding.DecodeString(string(responseBody))
+		header, err := base64.StdEncoding.DecodeString(string(response["value"]))
 		require.NoError(t, err)
 		assert.Equal(t, "sssh, it's a secret", string(header))
 	})
 
 	t.Run("Authentication headers for POST", func(t *testing.T) {
-		response, err := client.Post("/auth", map[string]string{})
-		defer response.Body.Close()
+		var response map[string]string
+		_, err := client.Post("/auth", map[string]string{}, &response)
 
 		require.NoError(t, err)
-		require.NotNil(t, response)
 
-		responseBody, err := ioutil.ReadAll(response.Body)
-		require.NoError(t, err)
-
-		header, err := base64.StdEncoding.DecodeString(string(responseBody))
+		header, err := base64.StdEncoding.DecodeString(string(response["value"]))
 		require.NoError(t, err)
 		assert.Equal(t, "sssh, it's a secret", string(header))
 	})

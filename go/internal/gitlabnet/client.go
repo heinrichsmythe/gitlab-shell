@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -49,8 +50,6 @@ func normalizePath(path string) string {
 }
 
 func newRequest(method, host, path string, data interface{}) (*http.Request, error) {
-	path = normalizePath(path)
-
 	var jsonReader io.Reader
 	if data != nil {
 		jsonData, err := json.Marshal(data)
@@ -70,7 +69,7 @@ func newRequest(method, host, path string, data interface{}) (*http.Request, err
 }
 
 func parseError(resp *http.Response) error {
-	if resp.StatusCode >= 200 && resp.StatusCode <= 299 {
+	if resp.StatusCode >= 200 && resp.StatusCode <= 399 {
 		return nil
 	}
 	defer resp.Body.Close()
@@ -84,15 +83,15 @@ func parseError(resp *http.Response) error {
 
 }
 
-func (c *GitlabClient) Get(path string) (*http.Response, error) {
-	return c.doRequest("GET", path, nil)
+func (c *GitlabClient) Get(path string, parsedResponse interface{}) (*http.Response, error) {
+	return c.DoRequest("GET", normalizePath(path), nil, parsedResponse)
 }
 
-func (c *GitlabClient) Post(path string, data interface{}) (*http.Response, error) {
-	return c.doRequest("POST", path, data)
+func (c *GitlabClient) Post(path string, data interface{}, parsedResponse interface{}) (*http.Response, error) {
+	return c.DoRequest("POST", normalizePath(path), data, parsedResponse)
 }
 
-func (c *GitlabClient) doRequest(method, path string, data interface{}) (*http.Response, error) {
+func (c *GitlabClient) DoRequest(method, path string, data interface{}, parsedResponse interface{}) (*http.Response, error) {
 	request, err := newRequest(method, c.host, path, data)
 	if err != nil {
 		return nil, err
@@ -110,6 +109,7 @@ func (c *GitlabClient) doRequest(method, path string, data interface{}) (*http.R
 	request.Close = true
 
 	response, err := c.httpClient.Do(request)
+
 	if err != nil {
 		return nil, fmt.Errorf("Internal API unreachable")
 	}
@@ -118,5 +118,26 @@ func (c *GitlabClient) doRequest(method, path string, data interface{}) (*http.R
 		return nil, err
 	}
 
+	defer response.Body.Close()
+	err = parseResponse(response, parsedResponse)
+
+	if err != nil {
+		return nil, fmt.Errorf("Parsing failed")
+	}
+
 	return response, nil
+}
+
+func parseResponse(resp *http.Response, parsedResponse interface{}) error {
+	body, err := ioutil.ReadAll(resp.Body)
+
+	if err != nil {
+		return err
+	}
+
+	if err := json.Unmarshal(body, parsedResponse); err != nil {
+		return err
+	} else {
+		return nil
+	}
 }

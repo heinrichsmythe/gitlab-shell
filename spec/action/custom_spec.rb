@@ -39,8 +39,8 @@ describe Action::Custom do
         context 'and responds correctly' do
           it 'prints a Base64 encoded result to $stdout' do
             VCR.use_cassette("custom-action-ok") do
-              expect($stdout).to receive(:print).with('info_refs-result').ordered
-              expect($stdout).to receive(:print).with('push-result').ordered
+              expect($stdout).to receive(:puts).with('info_refs-result').ordered
+              expect($stdout).to receive(:puts).with('push-result').ordered
               subject.execute
             end
           end

@@ -1,11 +1,8 @@
 package twofactorrecover
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
-	"net/http"
 
 	"gitlab.com/gitlab-org/gitlab-shell/go/internal/command/commandargs"
 	"gitlab.com/gitlab-org/gitlab-shell/go/internal/config"
@@ -45,38 +42,15 @@ func (c *Client) GetRecoveryCodes(args *commandargs.CommandArgs) ([]string, erro
 		return nil, err
 	}
 
-	response, err := c.client.Post("/two_factor_recovery_codes", requestBody)
-
-	if err != nil {
+	response := &Response{}
+	if _, err = c.client.Post("/two_factor_recovery_codes", requestBody, response); err != nil {
 		return nil, err
 	}
 
-	defer response.Body.Close()
-	parsedResponse, err := c.parseResponse(response)
-
-	if err != nil {
-		return nil, fmt.Errorf("Parsing failed")
-	}
-
-	if parsedResponse.Success {
-		return parsedResponse.RecoveryCodes, nil
+	if response.Success {
+		return response.RecoveryCodes, nil
 	} else {
-		return nil, errors.New(parsedResponse.Message)
-	}
-}
-
-func (c *Client) parseResponse(resp *http.Response) (*Response, error) {
-	parsedResponse := &Response{}
-	body, err := ioutil.ReadAll(resp.Body)
-
-	if err != nil {
-		return nil, err
-	}
-
-	if err := json.Unmarshal(body, parsedResponse); err != nil {
-		return nil, err
-	} else {
-		return parsedResponse, nil
+		return nil, errors.New(response.Message)
 	}
 }
 

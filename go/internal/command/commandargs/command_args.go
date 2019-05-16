@@ -11,6 +11,7 @@ type CommandType string
 const (
 	Discover         CommandType = "discover"
 	TwoFactorRecover CommandType = "2fa_recovery_codes"
+	ReceivePack      CommandType = "git-receive-pack"
 )
 
 var (
@@ -21,7 +22,7 @@ var (
 type CommandArgs struct {
 	GitlabUsername string
 	GitlabKeyId    string
-	SshCommand     string
+	SshArgs        []string
 	CommandType    CommandType
 }
 
@@ -34,6 +35,7 @@ func Parse(arguments []string) (*CommandArgs, error) {
 
 	info.parseWho(arguments)
 	info.parseCommand(os.Getenv("SSH_ORIGINAL_COMMAND"))
+	info.defineCommandType()
 
 	return info, nil
 }
@@ -75,13 +77,23 @@ func tryParseUsername(argument string) string {
 }
 
 func (c *CommandArgs) parseCommand(commandString string) {
-	c.SshCommand = commandString
+	args := splitSshArgs(commandString)
 
-	if commandString == "" {
-		c.CommandType = Discover
+	// Handle Git for Windows 2.14 using "git upload-pack" instead of git-upload-pack
+	if len(args) > 0 && args[0] == "git" {
+		command := args[0] + "-" + args[1]
+		commandArgs := args[2:]
+
+		args = append([]string{command}, commandArgs...)
 	}
 
-	if CommandType(commandString) == TwoFactorRecover {
-		c.CommandType = TwoFactorRecover
+	c.SshArgs = args
+}
+
+func (c *CommandArgs) defineCommandType() {
+	if len(c.SshArgs) == 0 {
+		c.CommandType = Discover
+	} else {
+		c.CommandType = CommandType(c.SshArgs[0])
 	}
 }

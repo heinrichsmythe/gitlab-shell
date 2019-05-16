@@ -98,7 +98,7 @@ module Action
 
     def print_flush(str)
       return false unless str
-      $stdout.print(Base64.decode64(str))
+      $stdout.puts(Base64.decode64(str))
       $stdout.flush
     end
 
