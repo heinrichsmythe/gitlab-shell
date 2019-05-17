@@ -68,7 +68,7 @@ describe 'bin/gitlab-shell 2fa_recovery_codes' do
     end
 
     context 'when the user disagrees to regenerate keys' do
-      let(:cmd) { "#{gitlab_shell_path} key-100" }
+      let(:cmd) { "#{gitlab_shell_path} -c/usr/share/webapps/gitlab-shell/bin/gitlab-shell key-100" }
 
       it 'the recovery keys are not regenerated' do
         Open3.popen2(env, cmd) do |stdin, stdout|
@@ -85,7 +85,7 @@ describe 'bin/gitlab-shell 2fa_recovery_codes' do
     end
 
     context 'when API error occurs' do
-      let(:cmd) { "#{gitlab_shell_path} key-101" }
+      let(:cmd) { "#{gitlab_shell_path} -c/usr/share/webapps/gitlab-shell/bin/gitlab-shell key-101" }
 
       context 'when the user agrees to regenerate keys' do
         it 'the recovery keys are regenerated' do

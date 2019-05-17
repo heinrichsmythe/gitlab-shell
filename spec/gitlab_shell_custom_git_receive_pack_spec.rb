@@ -76,7 +76,7 @@ describe 'Custom bin/gitlab-shell git-receive-pack' do
       end
 
       context 'when key is provided' do
-        let(:cmd) { "#{gitlab_shell_path} key-100" }
+        let(:cmd) { "#{gitlab_shell_path} -c/usr/share/webapps/gitlab-shell/bin/gitlab-shell key-100" }
 
         it 'custom action is performed' do
           verify_successful_call!(cmd)
@@ -84,7 +84,7 @@ describe 'Custom bin/gitlab-shell git-receive-pack' do
       end
 
       context 'when username is provided' do
-        let(:cmd) { "#{gitlab_shell_path} username-someone" }
+        let(:cmd) { "#{gitlab_shell_path} -c/usr/share/webapps/gitlab-shell/bin/gitlab-shell username-someone" }
 
         it 'custom action is performed' do
           verify_successful_call!(cmd)
@@ -93,7 +93,7 @@ describe 'Custom bin/gitlab-shell git-receive-pack' do
     end
 
     context 'when API error occurs' do
-      let(:cmd) { "#{gitlab_shell_path} key-101" }
+      let(:cmd) { "#{gitlab_shell_path} -c/usr/share/webapps/gitlab-shell/bin/gitlab-shell key-101" }
 
       it 'custom action is not performed' do
         Open3.popen2e(env, cmd) do |stdin, stdout|
